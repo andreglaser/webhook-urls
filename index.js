@@ -24,9 +24,11 @@ app.post('/get-final-url', async (req, res) => {
     let searchUrl = ''; // URL com parâmetros de busca (antes do login)
     
     // Inicializar Puppeteer com configurações para Render
+    const chromePath = '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome';
+    
     browser = await puppeteer.launch({ 
       headless: true,
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || await puppeteer.executablePath(),
+      executablePath: chromePath,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
