@@ -26,6 +26,7 @@ app.post('/get-final-url', async (req, res) => {
     // Inicializar Puppeteer com configurações para Render
     browser = await puppeteer.launch({ 
       headless: true,
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || await puppeteer.executablePath(),
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -37,7 +38,9 @@ app.post('/get-final-url', async (req, res) => {
         '--disable-gpu',
         '--disable-background-timer-throttling',
         '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding'
+        '--disable-renderer-backgrounding',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor'
       ]
     });
     
