@@ -26,11 +26,20 @@ app.post('/get-final-url', async (req, res) => {
     
     // Inicializar Puppeteer com @sparticuz/chromium (otimizado para Render)
     browser = await puppeteer.launch({
-      args: chromium.args,
+      args: [
+        ...chromium.args,
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--single-process',
+        '--no-zygote',
+        '--disable-gpu'
+      ],
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
       headless: chromium.headless,
       ignoreHTTPSErrors: true,
+      timeout: 60000, // Aumentar timeout para 60 segundos
     });
     
     const page = await browser.newPage();
@@ -88,14 +97,14 @@ app.post('/get-final-url', async (req, res) => {
       }
     });
     
-    // Navegar para a URL
+    // Navegar para a URL com timeout maior
     await page.goto(url, { 
-      waitUntil: 'networkidle2', 
-      timeout: 30000 
+      waitUntil: 'domcontentloaded', // Mais rápido que networkidle2
+      timeout: 45000 // 45 segundos
     });
     
-    // Aguardar um pouco mais para garantir que redirects JavaScript executem
-    await page.waitForTimeout(5000);
+    // Aguardar um pouco para garantir que redirects JavaScript executem
+    await page.waitForTimeout(3000);
     
     // Capturar URL final
     finalUrl = page.url();
