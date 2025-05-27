@@ -1,5 +1,6 @@
 const express = require('express');
-const chromium = require('chrome-aws-lambda');
+const chromium = require('@sparticuz/chromium');
+const puppeteer = require('puppeteer-core');
 const app = express();
 
 // Middleware para parsing JSON
@@ -23,11 +24,11 @@ app.post('/get-final-url', async (req, res) => {
     let finalUrl = '';
     let searchUrl = ''; // URL com parâmetros de busca (antes do login)
     
-    // Inicializar Puppeteer com chrome-aws-lambda (otimizado para Render)
-    browser = await chromium.puppeteer.launch({
-      args: [...chromium.args, '--hide-scrollbars', '--disable-web-security'],
+    // Inicializar Puppeteer com @sparticuz/chromium (otimizado para Render)
+    browser = await puppeteer.launch({
+      args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath,
+      executablePath: await chromium.executablePath(),
       headless: chromium.headless,
       ignoreHTTPSErrors: true,
     });
