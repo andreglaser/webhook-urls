@@ -23,7 +23,7 @@ app.post('/get-final-url', async (req, res) => {
     let finalUrl = '';
     let searchUrl = ''; // URL com parâmetros de busca (antes do login)
     
-    // Inicializar Puppeteer
+    // Inicializar Puppeteer com configurações para Render
     browser = await puppeteer.launch({ 
       headless: true,
       args: [
@@ -34,7 +34,10 @@ app.post('/get-final-url', async (req, res) => {
         '--no-first-run',
         '--no-zygote',
         '--single-process',
-        '--disable-gpu'
+        '--disable-gpu',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding'
       ]
     });
     
@@ -146,15 +149,25 @@ app.post('/get-final-url', async (req, res) => {
 
 // Rota de teste
 app.get('/test', (req, res) => {
-  res.json({ message: 'Webhook funcionando!' });
+  res.json({ message: 'Webhook funcionando!', timestamp: new Date().toISOString() });
+});
+
+// Rota raiz
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Webhook URL Scraper', 
+    endpoints: {
+      test: 'GET /',
+      scrape: 'POST /get-final-url'
+    }
+  });
 });
 
 // Iniciar servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
-  console.log(`Teste: http://localhost:${PORT}/test`);
-  console.log(`Endpoint: POST http://localhost:${PORT}/get-final-url`);
+  console.log(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
 });
 
 module.exports = app;

@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: webhook-urls
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /test
+    envVars:
+      - key: NODE_ENV
+        value: production

@@ -1,5 +1,5 @@
 {
-  "name": "url-scraper-webhook",
+  "name": "webhook-urls",
   "version": "1.0.0",
   "description": "Webhook para capturar URL final após redirecionamentos JavaScript",
   "main": "index.js",
@@ -11,10 +11,7 @@
     "express": "^4.18.2",
     "puppeteer": "^22.8.2"
   },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
-  },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   }
 }
