@@ -1,5 +1,5 @@
 const express = require('express');
-const puppeteer = require('puppeteer');
+const chromium = require('chrome-aws-lambda');
 const app = express();
 
 // Middleware para parsing JSON
@@ -23,57 +23,13 @@ app.post('/get-final-url', async (req, res) => {
     let finalUrl = '';
     let searchUrl = ''; // URL com parâmetros de busca (antes do login)
     
-    // Inicializar Puppeteer com configurações para Render
-    let executablePath;
-    
-    try {
-      // Tentar encontrar o Chrome instalado pelo Puppeteer
-      const fs = require('fs');
-      const path = require('path');
-      
-      const possiblePaths = [
-        '/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome',
-        '/opt/render/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome',
-        process.env.PUPPETEER_EXECUTABLE_PATH
-      ];
-      
-      for (const chromePath of possiblePaths) {
-        if (chromePath && fs.existsSync(chromePath)) {
-          executablePath = chromePath;
-          break;
-        }
-      }
-      
-      // Se não encontrou, usar o padrão do Puppeteer
-      if (!executablePath) {
-        executablePath = puppeteer.executablePath();
-      }
-      
-      console.log(`Usando Chrome: ${executablePath}`);
-      
-    } catch (error) {
-      console.log('Erro ao encontrar Chrome, usando padrão');
-      executablePath = puppeteer.executablePath();
-    }
-    
-    browser = await puppeteer.launch({ 
-      headless: true,
-      executablePath: executablePath,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--disable-web-security',
-        '--disable-features=VizDisplayCompositor'
-      ]
+    // Inicializar Puppeteer com chrome-aws-lambda (otimizado para Render)
+    browser = await chromium.puppeteer.launch({
+      args: [...chromium.args, '--hide-scrollbars', '--disable-web-security'],
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath,
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true,
     });
     
     const page = await browser.newPage();
