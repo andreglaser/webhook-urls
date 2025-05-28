@@ -224,15 +224,15 @@ app.post('/get-final-url', async (req, res) => {
       }
     });
     
-    // Navegar para a URL com timeout maior
+    // Navegar para a URL com timeout otimizado
     try {
       await page.goto(url, { 
-        waitUntil: 'domcontentloaded',
-        timeout: 20000
+        waitUntil: 'domcontentloaded', // Mais rápido
+        timeout: 15000 // Reduzir timeout
       });
       
-      // Aguardar um pouco para garantir que redirects JavaScript executem
-      await page.waitForTimeout(3000);
+      // Aguardar menos tempo - já temos o redirect principal
+      await page.waitForTimeout(1000);
       
     } catch (error) {
       if (error.message.includes('ERR_TOO_MANY_REDIRECTS')) {
