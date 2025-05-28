@@ -44,8 +44,121 @@ app.post('/get-final-url', async (req, res) => {
     
     const page = await browser.newPage();
     
-    // Configurar User-Agent
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    // Configurar User-Agent EXATO do seu navegador
+    await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16.6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1');
+    
+    // Configurar headers EXATOS do seu navegador
+    await page.setExtraHTTPHeaders({
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+      'Accept-Encoding': 'gzip, deflate, br, zstd',
+      'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Sec-Fetch-User': '?1',
+      'Upgrade-Insecure-Requests': '1',
+      'Priority': 'u=0, i'
+    });
+    
+    // Configurar viewport para simular iPhone
+    await page.setViewport({
+      width: 390,
+      height: 844,
+      deviceScaleFactor: 3,
+      isMobile: true,
+      hasTouch: true,
+      isLandscape: false
+    });
+    
+    // Configurar cookies essenciais baseados no seu navegador
+    await page.setCookie(
+      {
+        name: 'prli_visitor',
+        value: '67461f4c538f4',
+        domain: '.alertadevoos.com.br',
+        path: '/'
+      },
+      {
+        name: 'pys_start_session',
+        value: 'true',
+        domain: '.alertadevoos.com.br', 
+        path: '/'
+      },
+      {
+        name: 'pbid',
+        value: 'db3afd0ab401e70c16648e72321439e154027a16ada016924fdffb19dfccc5fa',
+        domain: '.alertadevoos.com.br',
+        path: '/'
+      },
+      {
+        name: '_ga',
+        value: 'GA1.1.417006033.1733451652',
+        domain: '.alertadevoos.com.br',
+        path: '/'
+      },
+      {
+        name: '_ga_N938CQSCV7',
+        value: 'GS1.1.1740611487.7.1.1740611512.0.0.0',
+        domain: '.alertadevoos.com.br',
+        path: '/'
+      },
+      {
+        name: 'prli_click_27459',
+        value: 'nupr',
+        domain: '.alertadevoos.com.br',
+        path: '/'
+      },
+      {
+        name: 'prli_click_27474',
+        value: 'es11',
+        domain: '.alertadevoos.com.br',
+        path: '/'
+      },
+      {
+        name: '_gcl_au',
+        value: '1.1.173014227.1748299805',
+        domain: '.alertadevoos.com.br',
+        path: '/'
+      },
+      {
+        name: 'prli_click_29967',
+        value: 'xb4n',
+        domain: '.alertadevoos.com.br',
+        path: '/'
+      },
+      {
+        name: 'prli_click_29977',
+        value: 'y5tl',
+        domain: '.alertadevoos.com.br',
+        path: '/'
+      },
+      {
+        name: 'prli_click_30035',
+        value: '2uwb',
+        domain: '.alertadevoos.com.br',
+        path: '/'
+      },
+      {
+        name: 'prli_click_29864',
+        value: 'rfq6',
+        domain: '.alertadevoos.com.br',
+        path: '/'
+      },
+      {
+        name: 'prli_click_30069',
+        value: '84lt',
+        domain: '.alertadevoos.com.br',
+        path: '/'
+      },
+      {
+        name: '_ga_4GHTCC9GZW',
+        value: 'GS2.1.s1748396082$o20$g1$t1748396131$j11$l0$h0',
+        domain: '.alertadevoos.com.br',
+        path: '/'
+      }
+    );
     
     // Interceptar requisições para capturar redirecionamentos
     page.on('response', async (response) => {
@@ -56,6 +169,24 @@ app.post('/get-final-url', async (req, res) => {
       if ([301, 302, 307, 308].includes(status)) {
         const location = response.headers()['location'];
         if (location) {
+          
+          // Detectar loop de redirecionamento
+          if (visitedUrls.has(location)) {
+            console.log(`LOOP DETECTADO: ${location} já foi visitado`);
+            loopDetected = true;
+            return;
+          }
+          
+          // Limitar número de redirects
+          if (redirects.length >= 15) {
+            console.log('MUITOS REDIRECTS: Parando após 15 redirects');
+            loopDetected = true;
+            return;
+          }
+          
+          visitedUrls.add(responseUrl);
+          visitedUrls.add(location);
+          
           redirects.push({
             from: responseUrl,
             to: location,
@@ -98,13 +229,24 @@ app.post('/get-final-url', async (req, res) => {
     });
     
     // Navegar para a URL com timeout maior
-    await page.goto(url, { 
-      waitUntil: 'domcontentloaded', // Mais rápido que networkidle2
-      timeout: 45000 // 45 segundos
-    });
-    
-    // Aguardar um pouco para garantir que redirects JavaScript executem
-    await page.waitForTimeout(3000);
+    try {
+      await page.goto(url, { 
+        waitUntil: 'domcontentloaded',
+        timeout: 20000 // Reduzir timeout já que pode dar loop
+      });
+      
+      // Se não deu loop, aguardar um pouco
+      if (!loopDetected) {
+        await page.waitForTimeout(3000);
+      }
+      
+    } catch (error) {
+      if (error.message.includes('ERR_TOO_MANY_REDIRECTS') || loopDetected) {
+        console.log('Loop de redirecionamento detectado - usando último redirect válido');
+      } else {
+        throw error; // Re-lançar outros erros
+      }
+    }
     
     // Capturar URL final
     finalUrl = page.url();
@@ -116,6 +258,24 @@ app.post('/get-final-url', async (req, res) => {
     
     // Determinar a melhor URL para retornar
     let bestUrl = finalUrl;
+    
+    // Se detectou loop, usar o último redirect útil
+    if (loopDetected && redirects.length > 0) {
+      // Procurar por URLs que não sejam alertadevoos ou skypass (podem ser loops)
+      const validRedirects = redirects.filter(r => 
+        !r.to.includes('alertadevoos.com.br') && 
+        !r.to.includes('skypass.ai') && 
+        !r.to.includes('shortener.skypass.ai')
+      );
+      
+      if (validRedirects.length > 0) {
+        bestUrl = validRedirects[validRedirects.length - 1].to;
+      } else {
+        // Se não encontrou redirect válido, usar o primeiro redirect fora do domínio original
+        const externalRedirects = redirects.filter(r => !r.to.includes('alertadevoos.com.br'));
+        bestUrl = externalRedirects.length > 0 ? externalRedirects[0].to : finalUrl;
+      }
+    }
     
     // Se temos uma URL de busca válida e a final é de login, usar a de busca
     if (searchUrl && (finalUrl.includes('login') || finalUrl.includes('signin') || finalUrl.includes('auth'))) {
@@ -131,6 +291,7 @@ app.post('/get-final-url', async (req, res) => {
       recommendedUrl: bestUrl,
       redirects: redirects,
       totalRedirects: redirects.length,
+      loopDetected: loopDetected,
       isLoginPage: finalUrl.includes('login') || finalUrl.includes('signin') || finalUrl.includes('auth')
     });
     
