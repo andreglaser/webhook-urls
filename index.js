@@ -235,9 +235,12 @@ app.post('/get-final-url', async (req, res) => {
     // Navegar para a URL com timeout otimizado
     try {
       // Iniciar navegação
-      const navigationPromise = page.goto(url, { 
+      page.goto(url, { 
         waitUntil: 'domcontentloaded',
         timeout: 15000
+      }).catch(() => {
+        // Ignorar erros de navegação quando interrompemos
+        console.log('Navegação interrompida - normal');
       });
       
       // Aguardar até capturar pelo menos 2 redirects OU 5 segundos máximo
