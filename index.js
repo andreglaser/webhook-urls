@@ -23,6 +23,7 @@ app.post('/get-final-url', async (req, res) => {
     const redirects = [];
     let finalUrl = '';
     let searchUrl = ''; // URL com parâmetros de busca (antes do login)
+    let maxRedirectsReached = false;
     
     // Inicializar Puppeteer com @sparticuz/chromium + proxy móvel
     browser = await puppeteer.launch({
@@ -177,6 +178,13 @@ app.post('/get-final-url', async (req, res) => {
       
       // Capturar redirecionamentos HTTP (301, 302, 307, 308)
       if ([301, 302, 307, 308].includes(status)) {
+        // Parar se já atingiu o limite de redirects
+        if (redirects.length >= 5) {
+          console.log('LIMITE DE 5 REDIRECTS ATINGIDO - Parando');
+          maxRedirectsReached = true;
+          return;
+        }
+        
         const location = response.headers()['location'];
         if (location) {
           redirects.push({
@@ -227,16 +235,21 @@ app.post('/get-final-url', async (req, res) => {
     // Navegar para a URL com timeout otimizado
     try {
       await page.goto(url, { 
-        waitUntil: 'domcontentloaded', // Mais rápido
-        timeout: 15000 // Reduzir timeout
+        waitUntil: 'domcontentloaded',
+        timeout: 10000 // Timeout ainda menor
       });
       
-      // Aguardar menos tempo - já temos o redirect principal
-      await page.waitForTimeout(1000);
+      // Se atingiu limite de redirects, parar imediatamente
+      if (maxRedirectsReached) {
+        console.log('Parando - limite de redirects atingido');
+      } else {
+        // Aguardar só um pouco se não atingiu o limite
+        await page.waitForTimeout(500);
+      }
       
     } catch (error) {
       if (error.message.includes('ERR_TOO_MANY_REDIRECTS')) {
-        console.log('Loop de redirecionamento detectado - usando último redirect válido');
+        console.log('Loop de redirecionamento detectado');
       } else {
         throw error;
       }
@@ -267,6 +280,7 @@ app.post('/get-final-url', async (req, res) => {
       recommendedUrl: bestUrl,
       redirects: redirects,
       totalRedirects: redirects.length,
+      maxRedirectsReached: maxRedirectsReached,
       isLoginPage: finalUrl.includes('login') || finalUrl.includes('signin') || finalUrl.includes('auth')
     });
     
