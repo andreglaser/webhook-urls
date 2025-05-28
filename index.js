@@ -24,9 +24,18 @@ app.post('/get-final-url', async (req, res) => {
     let finalUrl = '';
     let searchUrl = ''; // URL com parâmetros de busca (antes do login)
     
-    // Inicializar Puppeteer com @sparticuz/chromium (otimizado para Render)
+    // Inicializar Puppeteer com @sparticuz/chromium + proxy móvel
     browser = await puppeteer.launch({
-      args: chromium.args,
+      args: [
+        ...chromium.args,
+        '--proxy-server=http://x166.fxdx.in:14941',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--single-process',
+        '--no-zygote',
+        '--disable-gpu'
+      ],
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
       headless: chromium.headless,
@@ -35,6 +44,12 @@ app.post('/get-final-url', async (req, res) => {
     });
     
     const page = await browser.newPage();
+    
+    // Autenticar no proxy
+    await page.authenticate({
+      username: 'andreglaser182020',
+      password: '3865086'
+    });
     
     // Configurar User-Agent EXATO do seu navegador
     await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16.6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1');
