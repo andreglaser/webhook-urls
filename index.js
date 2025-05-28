@@ -46,14 +46,58 @@ app.post('/get-final-url', async (req, res) => {
     
     const page = await browser.newPage();
     
+    // Randomizar User-Agent entre diferentes iPhones
+    const userAgents = [
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 16.6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17.0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 16.7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.7 Mobile/15E148 Safari/604.1'
+    ];
+    const randomUA = userAgents[Math.floor(Math.random() * userAgents.length)];
+    await page.setUserAgent(randomUA);
+    
+    // Mascarar propriedades do Puppeteer
+    await page.evaluateOnNewDocument(() => {
+      // Remover traces de webdriver
+      Object.defineProperty(navigator, 'webdriver', {
+        get: () => undefined,
+      });
+      
+      // Mascarar chrome runtime
+      delete window.chrome.runtime;
+      
+      // Adicionar propriedades de dispositivo real
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => [1, 2, 3, 4, 5],
+      });
+      
+      // Randomizar canvas fingerprint
+      const getContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function(type) {
+        if (type === '2d') {
+          const context = getContext.call(this, type);
+          const getImageData = context.getImageData;
+          context.getImageData = function(sx, sy, sw, sh) {
+            const imageData = getImageData.call(this, sx, sy, sw, sh);
+            for (let i = 0; i < imageData.data.length; i += 4) {
+              imageData.data[i] += Math.floor(Math.random() * 10) - 5;
+              imageData.data[i + 1] += Math.floor(Math.random() * 10) - 5;
+              imageData.data[i + 2] += Math.floor(Math.random() * 10) - 5;
+            }
+            return imageData;
+          };
+          return context;
+        }
+        return getContext.call(this, type);
+      };
+    });
+    
     // Autenticar no proxy
     await page.authenticate({
       username: 'andreglaser182020',
       password: '3865086'
     });
     
-    // Configurar User-Agent EXATO do seu navegador
-    await page.setUserAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 16.6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1');
+    // Configurar User-Agent já foi feito acima com randomização
     
     // Configurar headers EXATOS do seu navegador
     await page.setExtraHTTPHeaders({
@@ -243,12 +287,12 @@ app.post('/get-final-url', async (req, res) => {
         console.log('Navegação interrompida - normal');
       });
       
-      // Aguardar até capturar pelo menos 2 redirects OU 5 segundos máximo
+      // Aguardar até capturar pelo menos 2 redirects OU 6 segundos máximo (mais tempo para parecer humano)
       let redirectCount = 0;
       const startTime = Date.now();
       
-      while (redirectCount < 2 && (Date.now() - startTime) < 5000) {
-        await new Promise(resolve => setTimeout(resolve, 200)); // Check a cada 200ms
+      while (redirectCount < 2 && (Date.now() - startTime) < 6000) {
+        await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 200)); // Timing mais humano
         redirectCount = redirects.length;
       }
       
