@@ -26,20 +26,12 @@ app.post('/get-final-url', async (req, res) => {
     
     // Inicializar Puppeteer com @sparticuz/chromium (otimizado para Render)
     browser = await puppeteer.launch({
-      args: [
-        ...chromium.args,
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--single-process',
-        '--no-zygote',
-        '--disable-gpu'
-      ],
+      args: chromium.args,
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
       headless: chromium.headless,
       ignoreHTTPSErrors: true,
-      timeout: 60000, // Aumentar timeout para 60 segundos
+      timeout: 60000,
     });
     
     const page = await browser.newPage();
@@ -165,41 +157,29 @@ app.post('/get-final-url', async (req, res) => {
       const status = response.status();
       const responseUrl = response.url();
       
+      // Log detalhado para debug
+      console.log(`Response: ${status} - ${responseUrl}`);
+      
       // Capturar redirecionamentos HTTP (301, 302, 307, 308)
       if ([301, 302, 307, 308].includes(status)) {
         const location = response.headers()['location'];
         if (location) {
-          
-          // Detectar loop de redirecionamento
-          if (visitedUrls.has(location)) {
-            console.log(`LOOP DETECTADO: ${location} já foi visitado`);
-            loopDetected = true;
-            return;
-          }
-          
-          // Limitar número de redirects
-          if (redirects.length >= 15) {
-            console.log('MUITOS REDIRECTS: Parando após 15 redirects');
-            loopDetected = true;
-            return;
-          }
-          
-          visitedUrls.add(responseUrl);
-          visitedUrls.add(location);
-          
           redirects.push({
             from: responseUrl,
             to: location,
             status: status,
-            type: 'HTTP'
+            type: 'HTTP',
+            headers: response.headers()
           });
           
           console.log(`Redirect HTTP ${status}: ${responseUrl} -> ${location}`);
           
           // Se a URL contém parâmetros de busca e não é login, salvar como searchUrl
           if (location.includes('search') || location.includes('booking') || location.includes('flight') || 
+              location.includes('oferta-voos') || location.includes('latam') || location.includes('gol') ||
               (location.includes('?') && !location.includes('login') && !location.includes('signin'))) {
             searchUrl = location;
+            console.log(`Search URL encontrada: ${location}`);
           }
         }
       }
@@ -221,6 +201,7 @@ app.post('/get-final-url', async (req, res) => {
           
           // Se a URL contém parâmetros de busca e não é login, salvar como searchUrl
           if (newUrl.includes('search') || newUrl.includes('booking') || newUrl.includes('flight') || 
+              newUrl.includes('oferta-voos') || newUrl.includes('latam') || newUrl.includes('gol') ||
               (newUrl.includes('?') && !newUrl.includes('login') && !newUrl.includes('signin'))) {
             searchUrl = newUrl;
           }
@@ -232,19 +213,17 @@ app.post('/get-final-url', async (req, res) => {
     try {
       await page.goto(url, { 
         waitUntil: 'domcontentloaded',
-        timeout: 20000 // Reduzir timeout já que pode dar loop
+        timeout: 20000
       });
       
-      // Se não deu loop, aguardar um pouco
-      if (!loopDetected) {
-        await page.waitForTimeout(3000);
-      }
+      // Aguardar um pouco para garantir que redirects JavaScript executem
+      await page.waitForTimeout(3000);
       
     } catch (error) {
-      if (error.message.includes('ERR_TOO_MANY_REDIRECTS') || loopDetected) {
+      if (error.message.includes('ERR_TOO_MANY_REDIRECTS')) {
         console.log('Loop de redirecionamento detectado - usando último redirect válido');
       } else {
-        throw error; // Re-lançar outros erros
+        throw error;
       }
     }
     
@@ -258,24 +237,6 @@ app.post('/get-final-url', async (req, res) => {
     
     // Determinar a melhor URL para retornar
     let bestUrl = finalUrl;
-    
-    // Se detectou loop, usar o último redirect útil
-    if (loopDetected && redirects.length > 0) {
-      // Procurar por URLs que não sejam alertadevoos ou skypass (podem ser loops)
-      const validRedirects = redirects.filter(r => 
-        !r.to.includes('alertadevoos.com.br') && 
-        !r.to.includes('skypass.ai') && 
-        !r.to.includes('shortener.skypass.ai')
-      );
-      
-      if (validRedirects.length > 0) {
-        bestUrl = validRedirects[validRedirects.length - 1].to;
-      } else {
-        // Se não encontrou redirect válido, usar o primeiro redirect fora do domínio original
-        const externalRedirects = redirects.filter(r => !r.to.includes('alertadevoos.com.br'));
-        bestUrl = externalRedirects.length > 0 ? externalRedirects[0].to : finalUrl;
-      }
-    }
     
     // Se temos uma URL de busca válida e a final é de login, usar a de busca
     if (searchUrl && (finalUrl.includes('login') || finalUrl.includes('signin') || finalUrl.includes('auth'))) {
@@ -291,7 +252,6 @@ app.post('/get-final-url', async (req, res) => {
       recommendedUrl: bestUrl,
       redirects: redirects,
       totalRedirects: redirects.length,
-      loopDetected: loopDetected,
       isLoginPage: finalUrl.includes('login') || finalUrl.includes('signin') || finalUrl.includes('auth')
     });
     
