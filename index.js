@@ -234,22 +234,25 @@ app.post('/get-final-url', async (req, res) => {
     
     // Navegar para a URL com timeout otimizado
     try {
-      // Configurar timeout menor e parar logo que carregar o HTML básico
+      // Iniciar navegação
       const navigationPromise = page.goto(url, { 
         waitUntil: 'domcontentloaded',
-        timeout: 8000 // Timeout bem menor
+        timeout: 15000
       });
       
-      // Aguardar apenas 2 segundos para capturar redirects principais
-      await Promise.race([
-        navigationPromise,
-        new Promise(resolve => setTimeout(resolve, 2000))
-      ]);
+      // Aguardar até capturar pelo menos 2 redirects OU 5 segundos máximo
+      let redirectCount = 0;
+      const startTime = Date.now();
       
-      console.log('Parando navegação - já capturamos os redirects principais');
+      while (redirectCount < 2 && (Date.now() - startTime) < 5000) {
+        await new Promise(resolve => setTimeout(resolve, 200)); // Check a cada 200ms
+        redirectCount = redirects.length;
+      }
+      
+      console.log(`Parando após ${redirectCount} redirects em ${Date.now() - startTime}ms`);
       
     } catch (error) {
-      console.log('Navegação interrompida ou completada');
+      console.log('Navegação interrompida:', error.message);
     }
     
     // Capturar URL final
