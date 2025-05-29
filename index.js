@@ -1,10 +1,86 @@
-const express = require('express');
+// Interceptar requisições para capturar redirecionamentos
+    page.on('response', async (response) => {
+      const status = response.status();
+      const responseUrl = response.url();
+      
+      // Log detalhado para debug
+      console.log(`Response: ${status} - ${responseUrl}`);
+      
+      // Capturar redirecionamentos HTTP (301, 302, 307, 308)
+      if ([301, 302, 307, 308].includes(status)) {
+        // Parar se já atingiu o limite de redirects
+        if (redirects.length >= 5) {
+          console.log('LIMITE DE 5 REDIRECTS ATINGIDO - Parando');
+          maxRedirectsReached = true;
+          return;
+        }
+        
+        const location = response.headers()['location'];
+        if (location) {
+          redirects.push({
+            from: responseUrl,
+            to: location,
+            status: status,
+            type: 'HTTP',
+            headers: response.headers()
+          });
+          
+          console.log(`Redirect HTTP ${status}: ${responseUrl} -> ${location}`);
+          
+          // Se a URL contém parâmetros de busca e não é login, salvar como searchUrl
+          if (location.includes('search') || location.includes('booking') || location.includes('flight') || 
+              location.includes('oferta-voos') || location.includes('latam') || location.includes('gol') ||
+              (location.includes('?') && !location.includes('login') && !location.includes('signin'))) {
+            searchUrl = location;
+            console.log(`Search URL encontrada: ${location}`);
+          }
+        }
+      }
+    });
+    
+    // Simular comportamento humano - movimentos de mouse e scroll
+    await page.evaluateOnNewDocument(() => {
+      // Simular eventos de mouse aleatórios
+      setTimeout(() => {
+        const event = new MouseEvent('mousemove', {
+          clientX: Math.random() * window.innerWidth,
+          clientY: Math.random() * window.innerHeight
+        });
+        document.dispatchEvent(event);
+      }, 100 const express = require('express');
 const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
 const app = express();
 
 // Middleware para parsing JSON
 app.use(express.json());
+
+// Contador de requisições para rotação de IP
+let requestCount = 0;
+
+// Função para rotacionar IP do proxy móvel
+async function rotateProxyIP() {
+  try {
+    console.log('Rotacionando IP do proxy móvel...');
+    const response = await fetch('https://i.fxdx.in/api-rt/changeip/PbAilm0y2T/xTBMYKNFP45TBFYBRXSPH', {
+      method: 'GET',
+      timeout: 10000
+    });
+    
+    if (response.ok) {
+      console.log('IP rotacionado com sucesso!');
+      // Aguardar um pouco para o IP se estabilizar
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return true;
+    } else {
+      console.log('Erro ao rotacionar IP:', response.status);
+      return false;
+    }
+  } catch (error) {
+    console.log('Erro na rotação de IP:', error.message);
+    return false;
+  }
+}
 
 // Rota para capturar URL final
 app.post('/get-final-url', async (req, res) => {
@@ -17,7 +93,15 @@ app.post('/get-final-url', async (req, res) => {
       return res.status(400).json({ error: 'URL é obrigatória' });
     }
     
-    console.log(`Processando URL: ${url}`);
+    // Incrementar contador de requisições
+    requestCount++;
+    console.log(`Processando URL: ${url} (Requisição #${requestCount})`);
+    
+    // Rotacionar IP a cada 10 requisições
+    if (requestCount % 10 === 1 && requestCount > 1) {
+      console.log('Chegou na 10ª requisição - rotacionando IP...');
+      await rotateProxyIP();
+    }
     
     // Array para armazenar todos os redirecionamentos
     const redirects = [];
@@ -328,7 +412,9 @@ app.post('/get-final-url', async (req, res) => {
       redirects: redirects,
       totalRedirects: redirects.length,
       maxRedirectsReached: maxRedirectsReached,
-      isLoginPage: finalUrl.includes('login') || finalUrl.includes('signin') || finalUrl.includes('auth')
+      isLoginPage: finalUrl.includes('login') || finalUrl.includes('signin') || finalUrl.includes('auth'),
+      requestCount: requestCount,
+      nextIPRotation: 10 - (requestCount % 10)
     });
     
   } catch (error) {
