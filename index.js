@@ -48,9 +48,9 @@ app.post('/get-final-url', async (req, res) => {
     requestCount++;
     console.log(`Processando URL: ${url} (Requisição #${requestCount})`);
     
-    // Rotacionar IP a cada 10 requisições
-    if (requestCount % 10 === 1 && requestCount > 1) {
-      console.log('Chegou na 10ª requisição - rotacionando IP...');
+    // Rotacionar IP a cada 5 requisições
+    if (requestCount % 5 === 1 && requestCount > 1) {
+      console.log('Chegou na 5ª requisição - rotacionando IP...');
       await rotateProxyIP();
     }
     
