@@ -1,53 +1,4 @@
-// Interceptar requisições para capturar redirecionamentos
-    page.on('response', async (response) => {
-      const status = response.status();
-      const responseUrl = response.url();
-      
-      // Log detalhado para debug
-      console.log(`Response: ${status} - ${responseUrl}`);
-      
-      // Capturar redirecionamentos HTTP (301, 302, 307, 308)
-      if ([301, 302, 307, 308].includes(status)) {
-        // Parar se já atingiu o limite de redirects
-        if (redirects.length >= 5) {
-          console.log('LIMITE DE 5 REDIRECTS ATINGIDO - Parando');
-          maxRedirectsReached = true;
-          return;
-        }
-        
-        const location = response.headers()['location'];
-        if (location) {
-          redirects.push({
-            from: responseUrl,
-            to: location,
-            status: status,
-            type: 'HTTP',
-            headers: response.headers()
-          });
-          
-          console.log(`Redirect HTTP ${status}: ${responseUrl} -> ${location}`);
-          
-          // Se a URL contém parâmetros de busca e não é login, salvar como searchUrl
-          if (location.includes('search') || location.includes('booking') || location.includes('flight') || 
-              location.includes('oferta-voos') || location.includes('latam') || location.includes('gol') ||
-              (location.includes('?') && !location.includes('login') && !location.includes('signin'))) {
-            searchUrl = location;
-            console.log(`Search URL encontrada: ${location}`);
-          }
-        }
-      }
-    });
-    
-    // Simular comportamento humano - movimentos de mouse e scroll
-    await page.evaluateOnNewDocument(() => {
-      // Simular eventos de mouse aleatórios
-      setTimeout(() => {
-        const event = new MouseEvent('mousemove', {
-          clientX: Math.random() * window.innerWidth,
-          clientY: Math.random() * window.innerHeight
-        });
-        document.dispatchEvent(event);
-      }, 100 const express = require('express');
+const express = require('express');
 const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
 const app = express();
@@ -130,6 +81,12 @@ app.post('/get-final-url', async (req, res) => {
     
     const page = await browser.newPage();
     
+    // Autenticar no proxy
+    await page.authenticate({
+      username: 'andreglaser182020',
+      password: '3865086'
+    });
+    
     // Randomizar User-Agent entre diferentes iPhones
     const userAgents = [
       'Mozilla/5.0 (iPhone; CPU iPhone OS 16.6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
@@ -176,14 +133,6 @@ app.post('/get-final-url', async (req, res) => {
         return getContext.call(this, type);
       };
     });
-    
-    // Autenticar no proxy
-    await page.authenticate({
-      username: 'andreglaser182020',
-      password: '3865086'
-    });
-    
-    // Configurar User-Agent já foi feito acima com randomização
     
     // Configurar headers EXATOS do seu navegador
     await page.setExtraHTTPHeaders({
