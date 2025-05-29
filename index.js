@@ -147,7 +147,9 @@ app.post('/get-final-url', async (req, res) => {
       });
       
       // Mascarar chrome runtime
-      delete window.chrome.runtime;
+      if (window.chrome && window.chrome.runtime) {
+        delete window.chrome.runtime;
+      }
       
       // Adicionar propriedades de dispositivo real
       Object.defineProperty(navigator, 'plugins', {
