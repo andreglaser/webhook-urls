@@ -9,6 +9,29 @@ app.use(express.json());
 // Contador de requisições para rotação de IP
 let requestCount = 0;
 
+// Função para verificar se o proxy está funcionando
+async function checkProxyStatus() {
+  try {
+    console.log('Verificando status do proxy...');
+    const testResponse = await fetch('https://httpbin.org/ip', {
+      method: 'GET',
+      timeout: 5000
+    });
+    
+    if (testResponse.ok) {
+      const data = await testResponse.json();
+      console.log('Proxy funcionando - IP:', data.origin);
+      return true;
+    } else {
+      console.log('Proxy com problemas - status:', testResponse.status);
+      return false;
+    }
+  } catch (error) {
+    console.log('Proxy down - erro:', error.message);
+    return false;
+  }
+}
+
 // Função para rotacionar IP do proxy móvel
 async function rotateProxyIP() {
   try {
@@ -54,24 +77,38 @@ app.post('/get-final-url', async (req, res) => {
       await rotateProxyIP();
     }
     
+    // Verificar status do proxy
+    const proxyWorking = await checkProxyStatus();
+    console.log(`Status do proxy: ${proxyWorking ? 'FUNCIONANDO' : 'DOWN'}`);
+    
     // Array para armazenar todos os redirecionamentos
     const redirects = [];
     let finalUrl = '';
     let searchUrl = ''; // URL com parâmetros de busca (antes do login)
     let maxRedirectsReached = false;
     
-    // Inicializar Puppeteer com @sparticuz/chromium + proxy móvel
+    // Configurar argumentos do browser baseado no status do proxy
+    let browserArgs = [
+      ...chromium.args,
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--single-process',
+      '--no-zygote',
+      '--disable-gpu'
+    ];
+    
+    // Adicionar proxy apenas se estiver funcionando
+    if (proxyWorking) {
+      browserArgs.push('--proxy-server=http://x166.fxdx.in:14941');
+      console.log('Usando proxy móvel');
+    } else {
+      console.log('Usando conexão direta (sem proxy)');
+    }
+    
+    // Inicializar Puppeteer com @sparticuz/chromium + proxy dinâmico
     browser = await puppeteer.launch({
-      args: [
-        ...chromium.args,
-        '--proxy-server=http://x166.fxdx.in:14941',
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--single-process',
-        '--no-zygote',
-        '--disable-gpu'
-      ],
+      args: browserArgs,
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
       headless: chromium.headless,
@@ -81,11 +118,13 @@ app.post('/get-final-url', async (req, res) => {
     
     const page = await browser.newPage();
     
-    // Autenticar no proxy
-    await page.authenticate({
-      username: 'andreglaser182020',
-      password: '3865086'
-    });
+    // Autenticar no proxy apenas se estiver usando proxy
+    if (proxyWorking) {
+      await page.authenticate({
+        username: 'andreglaser182020',
+        password: '3865086'
+      });
+    }
     
     // Randomizar User-Agent entre diferentes iPhones
     const userAgents = [
@@ -277,9 +316,16 @@ app.post('/get-final-url', async (req, res) => {
           console.log(`Redirect HTTP ${status}: ${responseUrl} -> ${location}`);
           
           // Se a URL contém parâmetros de busca e não é login, salvar como searchUrl
-          if (location.includes('search') || location.includes('booking') || location.includes('flight') || 
-              location.includes('oferta-voos') || location.includes('latam') || location.includes('gol') ||
-              (location.includes('?') && !location.includes('login') && !location.includes('signin'))) {
+          if ((location.includes('search') || 
+               location.includes('booking') || 
+               location.includes('flight') || 
+               location.includes('oferta-voos') || 
+               location.includes('latam') || 
+               location.includes('gol') ||
+               location.includes('voeazul') ||
+               location.includes('smiles') ||
+               (location.includes('?') && !location.includes('login') && !location.includes('signin'))) &&
+               !location.includes('login')) {
             searchUrl = location;
             console.log(`Search URL encontrada: ${location}`);
           }
@@ -302,9 +348,16 @@ app.post('/get-final-url', async (req, res) => {
           console.log(`Redirect JS: -> ${newUrl}`);
           
           // Se a URL contém parâmetros de busca e não é login, salvar como searchUrl
-          if (newUrl.includes('search') || newUrl.includes('booking') || newUrl.includes('flight') || 
-              newUrl.includes('oferta-voos') || newUrl.includes('latam') || newUrl.includes('gol') ||
-              (newUrl.includes('?') && !newUrl.includes('login') && !newUrl.includes('signin'))) {
+          if ((newUrl.includes('search') || 
+               newUrl.includes('booking') || 
+               newUrl.includes('flight') || 
+               newUrl.includes('oferta-voos') || 
+               newUrl.includes('latam') || 
+               newUrl.includes('gol') ||
+               newUrl.includes('voeazul') ||
+               newUrl.includes('smiles') ||
+               (newUrl.includes('?') && !newUrl.includes('login') && !newUrl.includes('signin'))) &&
+               !newUrl.includes('login')) {
             searchUrl = newUrl;
           }
         }
@@ -365,7 +418,8 @@ app.post('/get-final-url', async (req, res) => {
       maxRedirectsReached: maxRedirectsReached,
       isLoginPage: finalUrl.includes('login') || finalUrl.includes('signin') || finalUrl.includes('auth'),
       requestCount: requestCount,
-      nextIPRotation: 10 - (requestCount % 10)
+      nextIPRotation: 5 - (requestCount % 5),
+      proxyStatus: proxyWorking ? 'FUNCIONANDO' : 'DOWN'
     });
     
   } catch (error) {
