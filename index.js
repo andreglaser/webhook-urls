@@ -78,8 +78,29 @@ app.post('/get-final-url', async (req, res) => {
     }
     
     // Verificar status do proxy
-    const proxyWorking = await checkProxyStatus();
-    console.log(`Status do proxy: ${proxyWorking ? 'FUNCIONANDO' : 'DOWN'}`);
+    let proxyWorking = await checkProxyStatus();
+    
+    // Se proxy estiver DOWN, tentar rotacionar IP para reativar
+    if (!proxyWorking) {
+      console.log('Proxy DOWN - tentando rotacionar IP para reativar...');
+      const rotationSuccess = await rotateProxyIP();
+      
+      if (rotationSuccess) {
+        // Aguardar um pouco após rotação e testar novamente
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        proxyWorking = await checkProxyStatus();
+        
+        if (proxyWorking) {
+          console.log('Proxy reativado com sucesso após rotação!');
+        } else {
+          console.log('Proxy continua DOWN mesmo após rotação');
+        }
+      } else {
+        console.log('Falha na rotação do IP');
+      }
+    }
+    
+    console.log(`Status final do proxy: ${proxyWorking ? 'FUNCIONANDO' : 'DOWN'}`);
     
     // Array para armazenar todos os redirecionamentos
     const redirects = [];
